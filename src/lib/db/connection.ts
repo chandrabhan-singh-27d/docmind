@@ -1,16 +1,22 @@
-import { drizzle } from 'drizzle-orm/node-postgres';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+import { getEnv } from '@/config/env';
 import * as schema from './schema';
 
-const getDatabaseUrl = (): string => {
-  const url = process.env['DATABASE_URL'];
-  if (!url) {
-    throw new Error('DATABASE_URL is not set');
-  }
-  return url;
-};
+declare global {
+  var __docmindSqlClient: ReturnType<typeof postgres> | undefined;
+}
+
+const client =
+  globalThis.__docmindSqlClient ??
+  postgres(getEnv().DATABASE_URL);
+
+if (process.env['NODE_ENV'] !== 'production') {
+  globalThis.__docmindSqlClient = client;
+}
 
 export const db = drizzle({
-  connection: getDatabaseUrl(),
+  client,
   schema,
 });
 

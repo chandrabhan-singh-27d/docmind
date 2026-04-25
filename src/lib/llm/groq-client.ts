@@ -78,3 +78,38 @@ export const chatCompletion = async (
     return err({ type: 'LLM_ERROR', reason: message });
   }
 };
+
+export const streamChatCompletion = async (
+  params: ChatCompletionParams,
+): Promise<Result<AsyncIterable<string>, AppError>> => {
+  try {
+    const stream = await client().chat.completions.create(
+      {
+        model: params.model ?? 'llama-3.3-70b-versatile',
+        messages: [...params.messages],
+        temperature: params.temperature ?? 0.1,
+        max_tokens: params.maxTokens ?? 2048,
+        stream: true,
+      },
+      { signal: params.signal },
+    );
+
+    const iterable: AsyncIterable<string> = {
+      async *[Symbol.asyncIterator]() {
+        for await (const chunk of stream) {
+          const delta = chunk.choices[0]?.delta?.content;
+          if (delta) yield delta;
+        }
+      },
+    };
+
+    return ok(iterable);
+  } catch (error) {
+    if (error instanceof Groq.RateLimitError) {
+      return err({ type: 'LLM_RATE_LIMITED', retryAfterMs: 60_000 });
+    }
+
+    const message = error instanceof Error ? error.message : 'Unknown LLM error';
+    return err({ type: 'LLM_ERROR', reason: message });
+  }
+};

@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import { z } from 'zod/v4';
-import { askQuestion } from '@/features/chat/services/ask-question';
-import { toHttpStatus, toErrorResponse } from '@/lib/errors';
+import { askQuestionStream } from '@/features/chat/services/ask-question-stream';
+import { toErrorResponse, toHttpStatus } from '@/lib/errors';
 
 const ChatRequestSchema = z.object({
   query: z.string().min(1, 'Query cannot be empty').max(2000, 'Query too long'),
@@ -10,32 +10,46 @@ const ChatRequestSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  const body: unknown = await request.json();
+  let body: unknown;
+
+  try {
+    body = await request.json();
+  } catch {
+    const error = {
+      type: 'VALIDATION_ERROR' as const,
+      message: 'Malformed JSON body',
+    };
+
+    return NextResponse.json(
+      toErrorResponse(error),
+      { status: toHttpStatus(error) },
+    );
+  }
 
   const parsed = ChatRequestSchema.safeParse(body);
   if (!parsed.success) {
+    const error = {
+      type: 'VALIDATION_ERROR' as const,
+      message: z.prettifyError(parsed.error),
+    };
+
     return NextResponse.json(
-      {
-        error: {
-          type: 'VALIDATION_ERROR',
-          message: z.prettifyError(parsed.error),
-        },
-      },
-      { status: 422 },
+      toErrorResponse(error),
+      { status: toHttpStatus(error) },
     );
   }
 
-  const result = await askQuestion({
+  const stream = await askQuestionStream({
     query: parsed.data.query,
     topK: parsed.data.topK,
+    signal: request.signal,
   });
 
-  if (!result.ok) {
-    return NextResponse.json(
-      toErrorResponse(result.error),
-      { status: toHttpStatus(result.error) },
-    );
-  }
-
-  return NextResponse.json(result.value);
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  });
 }

@@ -2,30 +2,74 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { FormEvent } from 'react';
+import type { ChatMessage, ParsedSseEvent } from '../types';
 import type { Citation } from '@/features/retrieval/types';
 import MessageBubble from './message-bubble';
-
-interface Message {
-  readonly id: string;
-  readonly role: 'user' | 'assistant';
-  readonly content: string;
-  readonly citations?: ReadonlyArray<Citation>;
-}
-
-interface ChatApiResponse {
-  readonly answer: string;
-  readonly citations: ReadonlyArray<Citation>;
-  readonly error?: { readonly message: string };
-}
 
 const generateId = (): string =>
   `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
+const applyStreamEvent = (
+  messages: ReadonlyArray<ChatMessage>,
+  targetId: string,
+  event: ParsedSseEvent,
+): ReadonlyArray<ChatMessage> => {
+  switch (event.type) {
+    case 'delta':
+      return messages.map((m) =>
+        m.id === targetId
+          ? { ...m, content: m.content + event.content }
+          : m,
+      );
+
+    case 'citations':
+      return messages.map((m) =>
+        m.id === targetId ? { ...m, citations: event.citations } : m,
+      );
+
+    case 'error':
+      return messages.map((m) =>
+        m.id === targetId
+          ? { ...m, content: event.error }
+          : m,
+      );
+
+    case 'done':
+      return messages;
+  }
+};
+
+const parseSseData = (raw: string): ParsedSseEvent | null => {
+  try {
+    const data = JSON.parse(raw) as Record<string, unknown>;
+    const type = data['type'] as string;
+
+    switch (type) {
+      case 'delta':
+        return { type: 'delta', content: (data['content'] as string) ?? '' };
+      case 'citations':
+        return {
+          type: 'citations',
+          citations: JSON.parse((data['citations'] as string) ?? '[]') as ReadonlyArray<Citation>,
+        };
+      case 'error':
+        return { type: 'error', error: (data['error'] as string) ?? 'An error occurred' };
+      case 'done':
+        return { type: 'done' };
+      default:
+        return null;
+    }
+  } catch {
+    return null;
+  }
+};
+
 export default function ChatWindow() {
-  const [messages, setMessages] = useState<ReadonlyArray<Message>>([]);
+  const [messages, setMessages] = useState<ReadonlyArray<ChatMessage>>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -37,45 +81,74 @@ export default function ChatWindow() {
       const query = input.trim();
       if (!query || isLoading) return;
 
-      const userMessage: Message = {
+      const userMessage: ChatMessage = {
         id: generateId(),
         role: 'user',
         content: query,
       };
+      const assistantId = generateId();
 
-      setMessages((prev) => [...prev, userMessage]);
+      setMessages((prev) => [
+        ...prev,
+        userMessage,
+        { id: assistantId, role: 'assistant', content: '' },
+      ]);
       setInput('');
       setIsLoading(true);
+
+      abortRef.current = new AbortController();
 
       try {
         const response = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query }),
+          signal: abortRef.current.signal,
         });
 
-        const data = (await response.json()) as ChatApiResponse;
+        if (!response.ok || !response.body) {
+          setMessages((prev) =>
+            applyStreamEvent(prev, assistantId, {
+              type: 'error',
+              error: 'Something went wrong. Please try again.',
+            }),
+          );
+          return;
+        }
 
-        const assistantMessage: Message = {
-          id: generateId(),
-          role: 'assistant',
-          content: response.ok
-            ? data.answer
-            : data.error?.message ?? 'Something went wrong',
-          citations: response.ok ? data.citations : undefined,
-        };
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
 
-        setMessages((prev) => [...prev, assistantMessage]);
-      } catch {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: generateId(),
-            role: 'assistant',
-            content: 'Network error. Please try again.',
-          },
-        ]);
+        // SSE read loop: splits on double-newline, parses each event, updates message
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const segments = buffer.split('\n\n');
+          buffer = segments.pop() ?? '';
+
+          for (const segment of segments) {
+            const dataLine = segment.replace(/^data: /, '');
+            if (!dataLine) continue;
+
+            const event = parseSseData(dataLine);
+            if (event) {
+              setMessages((prev) => applyStreamEvent(prev, assistantId, event));
+            }
+          }
+        }
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        setMessages((prev) =>
+          applyStreamEvent(prev, assistantId, {
+            type: 'error',
+            error: 'Network error. Please try again.',
+          }),
+        );
       } finally {
+        abortRef.current = null;
         setIsLoading(false);
       }
     },
@@ -93,13 +166,6 @@ export default function ChatWindow() {
         {messages.map((msg) => (
           <MessageBubble key={msg.id} message={msg} />
         ))}
-        {isLoading && (
-          <div className="flex justify-start">
-            <div className="rounded-lg bg-zinc-100 px-4 py-3 dark:bg-zinc-800">
-              <p className="text-sm text-zinc-500">Thinking...</p>
-            </div>
-          </div>
-        )}
         <div ref={messagesEndRef} />
       </div>
 

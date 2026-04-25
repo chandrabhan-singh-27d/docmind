@@ -27,6 +27,23 @@ export const chunkText = (
 ): Result<ReadonlyArray<TextChunk>, AppError> => {
   const sentences = splitIntoSentences(text);
   const chunks: TextChunk[] = [];
+  const appendChunk = (content: string): Result<void, AppError> => {
+    chunks.push({
+      content,
+      index: chunks.length,
+      tokenCount: estimateTokens(content),
+      contentHash: computeHash(content),
+    });
+
+    if (chunks.length > config.maxChunks) {
+      return err({
+        type: 'CHUNK_LIMIT_EXCEEDED',
+        max: config.maxChunks,
+      });
+    }
+
+    return ok(undefined);
+  };
 
   let currentChunk = '';
   let overlapBuffer = '';
@@ -36,18 +53,9 @@ export const chunkText = (
 
     if (wouldBeSize > config.chunkSize && currentChunk.length > 0) {
       const trimmed = currentChunk.trim();
-      chunks.push({
-        content: trimmed,
-        index: chunks.length,
-        tokenCount: estimateTokens(trimmed),
-        contentHash: computeHash(trimmed),
-      });
-
-      if (chunks.length >= config.maxChunks) {
-        return err({
-          type: 'CHUNK_LIMIT_EXCEEDED',
-          max: config.maxChunks,
-        });
+      const appendResult = appendChunk(trimmed);
+      if (!appendResult.ok) {
+        return appendResult;
       }
 
       // Build overlap from the end of the current chunk
@@ -66,12 +74,10 @@ export const chunkText = (
   // Final chunk
   if (currentChunk.trim().length > 0) {
     const trimmed = currentChunk.trim();
-    chunks.push({
-      content: trimmed,
-      index: chunks.length,
-      tokenCount: estimateTokens(trimmed),
-      contentHash: computeHash(trimmed),
-    });
+    const appendResult = appendChunk(trimmed);
+    if (!appendResult.ok) {
+      return appendResult;
+    }
   }
 
   return ok(chunks);
