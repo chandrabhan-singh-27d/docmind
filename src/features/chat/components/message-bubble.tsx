@@ -1,18 +1,12 @@
 'use client';
 
-import type { Citation } from '@/features/retrieval/types';
+import type { ChatMessage } from '../types';
 import CitationCard from './citation-card';
-
-interface Message {
-  readonly role: 'user' | 'assistant';
-  readonly content: string;
-  readonly citations?: ReadonlyArray<Citation>;
-}
 
 export default function MessageBubble({
   message,
 }: {
-  readonly message: Message;
+  readonly message: ChatMessage;
 }) {
   const isUser = message.role === 'user';
 
