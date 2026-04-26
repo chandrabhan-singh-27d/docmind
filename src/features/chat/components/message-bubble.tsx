@@ -2,6 +2,7 @@
 
 import type { ChatMessage } from '../types';
 import CitationCard from './citation-card';
+import ChunkDebugPanel from './chunk-debug-panel';
 
 export default function MessageBubble({
   message,
@@ -36,6 +37,10 @@ export default function MessageBubble({
               />
             ))}
           </div>
+        )}
+
+        {message.chunks && message.chunks.length > 0 && (
+          <ChunkDebugPanel chunks={message.chunks} />
         )}
       </div>
     </div>

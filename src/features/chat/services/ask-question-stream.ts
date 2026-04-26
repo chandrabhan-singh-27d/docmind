@@ -13,12 +13,30 @@ const formatSseEvent = (event: SseEvent): string => {
       return `data: ${JSON.stringify({ type: 'delta', content: event.content })}\n\n`;
     case 'citations':
       return `data: ${JSON.stringify({ type: 'citations', citations: event.data })}\n\n`;
+    case 'chunks':
+      return `data: ${JSON.stringify({ type: 'chunks', chunks: event.data })}\n\n`;
     case 'done':
       return `data: ${JSON.stringify({ type: 'done' })}\n\n`;
     case 'error':
       return `data: ${JSON.stringify({ type: 'error', error: event.data })}\n\n`;
   }
 };
+
+const PREVIEW_LEN = 200;
+const toChunkDebug = (chunks: ReadonlyArray<{
+  readonly id: string;
+  readonly filename: string;
+  readonly chunkIndex: number;
+  readonly similarity: number;
+  readonly content: string;
+}>) =>
+  chunks.map((c) => ({
+    id: c.id,
+    filename: c.filename,
+    chunkIndex: c.chunkIndex,
+    similarity: c.similarity,
+    preview: c.content.length > PREVIEW_LEN ? `${c.content.slice(0, PREVIEW_LEN)}…` : c.content,
+  }));
 
 const CITATIONS_PREFIX = 'CITATIONS_JSON:';
 const encoder = new TextEncoder();
@@ -63,6 +81,7 @@ export const askQuestionStream = async (
 
   const context = buildQueryContext(params.query, searchResult.value);
   const messages = buildMessages(context);
+  const chunkDebug = toChunkDebug(searchResult.value);
 
   const streamResult = await streamChatCompletion({
     messages,
@@ -77,6 +96,10 @@ export const askQuestionStream = async (
   return new ReadableStream({
     async start(controller) {
       let fullResponse = '';
+
+      controller.enqueue(
+        encoder.encode(formatSseEvent({ type: 'chunks', data: JSON.stringify(chunkDebug) })),
+      );
 
       try {
         for await (const token of tokenStream) {

@@ -20,6 +20,14 @@ export interface ChatResponse {
   readonly citations: ReadonlyArray<Citation>;
 }
 
+export interface RetrievedChunkDebug {
+  readonly id: string;
+  readonly filename: string;
+  readonly chunkIndex: number;
+  readonly similarity: number;
+  readonly preview: string;
+}
+
 export interface QueryContext {
   readonly query: string;
   readonly chunks: ReadonlyArray<RetrievedChunk>;
