@@ -2,6 +2,7 @@ import Groq from 'groq-sdk';
 import type { Result } from '@/lib/result';
 import { ok, err } from '@/lib/result';
 import type { AppError } from '@/lib/errors';
+import { getEnv } from '@/config/env';
 
 interface ChatMessage {
   readonly role: 'system' | 'user' | 'assistant';
@@ -25,19 +26,11 @@ interface ChatResponse {
   };
 }
 
-const getClient = (): Groq => {
-  const apiKey = process.env['GROQ_API_KEY'];
-  if (!apiKey) {
-    throw new Error('GROQ_API_KEY is not set');
-  }
-  return new Groq({ apiKey });
-};
-
 let clientInstance: Groq | null = null;
 
 const client = (): Groq => {
   if (!clientInstance) {
-    clientInstance = getClient();
+    clientInstance = new Groq({ apiKey: getEnv().GROQ_API_KEY });
   }
   return clientInstance;
 };
@@ -48,7 +41,7 @@ export const chatCompletion = async (
   try {
     const response = await client().chat.completions.create(
       {
-        model: params.model ?? 'llama-3.3-70b-versatile',
+        model: params.model ?? getEnv().LLM_MODEL,
         messages: [...params.messages],
         temperature: params.temperature ?? 0.1,
         max_tokens: params.maxTokens ?? 2048,
@@ -85,7 +78,7 @@ export const streamChatCompletion = async (
   try {
     const stream = await client().chat.completions.create(
       {
-        model: params.model ?? 'llama-3.3-70b-versatile',
+        model: params.model ?? getEnv().LLM_MODEL,
         messages: [...params.messages],
         temperature: params.temperature ?? 0.1,
         max_tokens: params.maxTokens ?? 2048,

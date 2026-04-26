@@ -167,8 +167,17 @@ podman exec docmind-db psql -U docmind -c "CREATE EXTENSION IF NOT EXISTS vector
 pnpm drizzle-kit push
 
 # Configure environment
-cp .env.example .env
-# Add your GROQ_API_KEY and HF_API_TOKEN
+cp .env.example .env.local
+# Edit .env.local and fill in GROQ_API_KEY and HF_API_TOKEN
+
+# Loading order (highest priority first):
+#   1. .env.local       (per-developer overrides, gitignored)
+#   2. .env             (project defaults, gitignored)
+#   3. process.env      (shell exports, e.g. ~/.bashrc)
+#
+# .env.local wins, so you don't need to unset shell exports — keys present
+# in your .env.local override the shell. Keys absent from .env.local fall
+# back to whatever your shell exports (or platform-injected env in prod).
 
 # Run
 pnpm dev

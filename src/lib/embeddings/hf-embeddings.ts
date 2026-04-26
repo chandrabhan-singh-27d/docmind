@@ -1,6 +1,7 @@
 import type { Result } from '@/lib/result';
 import { ok, err } from '@/lib/result';
 import type { AppError } from '@/lib/errors';
+import { getEnv } from '@/config/env';
 
 const HF_INFERENCE_URL = 'https://router.huggingface.co/hf-inference/pipeline/feature-extraction';
 
@@ -9,25 +10,18 @@ interface EmbeddingParams {
   readonly model?: string;
 }
 
-const getToken = (): string => {
-  const token = process.env['HF_API_TOKEN'];
-  if (!token) {
-    throw new Error('HF_API_TOKEN is not set');
-  }
-  return token;
-};
-
 export const generateEmbeddings = async (
   params: EmbeddingParams,
 ): Promise<Result<ReadonlyArray<ReadonlyArray<number>>, AppError>> => {
-  const model = params.model ?? 'sentence-transformers/all-MiniLM-L6-v2';
+  const env = getEnv();
+  const model = params.model ?? env.EMBEDDING_MODEL;
   const url = `${HF_INFERENCE_URL}/${model}`;
 
   try {
     const response = await fetch(url, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${getToken()}`,
+        Authorization: `Bearer ${env.HF_API_TOKEN}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ inputs: params.texts }),
