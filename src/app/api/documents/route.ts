@@ -3,11 +3,25 @@ import type { NextRequest } from 'next/server';
 import { validateUpload } from '@/features/security/validate-upload';
 import { ingestDocument } from '@/features/ingestion/services/ingest-document';
 import { listDocuments, deleteDocument } from '@/features/ingestion/repositories/document-repo';
+import { getClientKey, getDefaultRateLimiter } from '@/features/security/rate-limiter';
 import { toHttpStatus, toErrorResponse } from '@/lib/errors';
+
+const rateLimitResponse = (request: NextRequest): NextResponse | null => {
+  const limit = getDefaultRateLimiter().check(getClientKey(request));
+  if (limit.allowed) return null;
+  const error = { type: 'RATE_LIMITED' as const, retryAfterMs: limit.retryAfterMs };
+  return NextResponse.json(toErrorResponse(error), {
+    status: toHttpStatus(error),
+    headers: { 'Retry-After': Math.ceil(limit.retryAfterMs / 1000).toString() },
+  });
+};
 
 const MAX_UPLOAD_SIZE_MB = Number(process.env['MAX_UPLOAD_SIZE_MB'] ?? 20);
 
 export async function POST(request: NextRequest) {
+  const limited = rateLimitResponse(request);
+  if (limited) return limited;
+
   const formData = await request.formData();
   const file = formData.get('file');
 
@@ -73,6 +87,9 @@ export async function GET() {
 }
 
 export async function DELETE(request: NextRequest) {
+  const limited = rateLimitResponse(request);
+  if (limited) return limited;
+
   const { searchParams } = new URL(request.url);
   const documentId = searchParams.get('id');
 

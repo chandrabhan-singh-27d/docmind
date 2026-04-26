@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { z } from 'zod/v4';
 import { askQuestionStream } from '@/features/chat/services/ask-question-stream';
+import { getClientKey, getDefaultRateLimiter } from '@/features/security/rate-limiter';
 import { toErrorResponse, toHttpStatus } from '@/lib/errors';
 
 const ChatRequestSchema = z.object({
@@ -10,6 +11,15 @@ const ChatRequestSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  const limit = getDefaultRateLimiter().check(getClientKey(request));
+  if (!limit.allowed) {
+    const error = { type: 'RATE_LIMITED' as const, retryAfterMs: limit.retryAfterMs };
+    return NextResponse.json(toErrorResponse(error), {
+      status: toHttpStatus(error),
+      headers: { 'Retry-After': Math.ceil(limit.retryAfterMs / 1000).toString() },
+    });
+  }
+
   let body: unknown;
 
   try {

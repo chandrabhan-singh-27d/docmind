@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { FormEvent } from 'react';
 import type { ChatMessage, ParsedSseEvent } from '../types';
-import type { Citation } from '@/features/retrieval/types';
+import type { Citation, RetrievedChunkDebug } from '@/features/retrieval/types';
 import MessageBubble from './message-bubble';
 
 const generateId = (): string =>
@@ -25,6 +25,11 @@ const applyStreamEvent = (
     case 'citations':
       return messages.map((m) =>
         m.id === targetId ? { ...m, citations: event.citations } : m,
+      );
+
+    case 'chunks':
+      return messages.map((m) =>
+        m.id === targetId ? { ...m, chunks: event.chunks } : m,
       );
 
     case 'error':
@@ -51,6 +56,11 @@ const parseSseData = (raw: string): ParsedSseEvent | null => {
         return {
           type: 'citations',
           citations: JSON.parse((data['citations'] as string) ?? '[]') as ReadonlyArray<Citation>,
+        };
+      case 'chunks':
+        return {
+          type: 'chunks',
+          chunks: JSON.parse((data['chunks'] as string) ?? '[]') as ReadonlyArray<RetrievedChunkDebug>,
         };
       case 'error':
         return { type: 'error', error: (data['error'] as string) ?? 'An error occurred' };

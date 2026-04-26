@@ -11,6 +11,7 @@ export type AppError =
   | { readonly type: 'EMBEDDING_FAILED'; readonly reason: string }
   | { readonly type: 'LLM_ERROR'; readonly reason: string }
   | { readonly type: 'LLM_RATE_LIMITED'; readonly retryAfterMs: number }
+  | { readonly type: 'RATE_LIMITED'; readonly retryAfterMs: number }
   | { readonly type: 'DATABASE_ERROR'; readonly reason: string }
   | { readonly type: 'CHUNK_LIMIT_EXCEEDED'; readonly max: number }
   | { readonly type: 'PROMPT_INJECTION_DETECTED' };
@@ -27,6 +28,7 @@ export const toHttpStatus = (error: AppError): number => {
     case 'PROMPT_INJECTION_DETECTED':
       return 400;
     case 'LLM_RATE_LIMITED':
+    case 'RATE_LIMITED':
       return 429;
     case 'EMBEDDING_FAILED':
     case 'LLM_ERROR':
@@ -60,6 +62,8 @@ const formatErrorMessage = (error: AppError): string => {
       return 'AI service temporarily unavailable. Please try again.';
     case 'LLM_RATE_LIMITED':
       return 'Rate limit reached. Please wait before trying again.';
+    case 'RATE_LIMITED':
+      return 'Too many requests. Please slow down.';
     case 'DATABASE_ERROR':
       return 'Internal error. Please try again.';
     case 'CHUNK_LIMIT_EXCEEDED':
