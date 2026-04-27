@@ -40,35 +40,27 @@ Transformers.js — no API token, no rate limits, no network round-trip per quer
 ```
 User
  │
- ├── Upload Document ───────────────────────────────────┐
+ ├── Upload Document ------------------------------------------┐
  │                                                             │
- │   ┌─────────────────── Ingestion Pipeline ────────────┐ │
- │   │                                                       │ │
- │   │  validate upload ──►  parse (PDF/text) ──►  chunk      │ │
- │   │  (MIME, size,        (pdf-parse v2)       (sliding   │ │
- │   │   magic bytes)                             window)   │ │
- │   │                                              │        │ │
- │   │                         store ◄── embed       │        │ │
- │   │                       (pgvector)  (Transformers.js,   │ │
- │   │                                    local ONNX)        │ │
- │   └───────────────────────────────────────────────────────────┘ │
+ │   ┌──────────── Ingestion Pipeline ─────────────┐           │
+ │   │ validate upload -> parse -> chunk           │           │
+ │   │ MIME / size / magic   PDF/text   slide win. │           │
+ │   │                                |            │           │
+ │   │                      embed -> store         │           │
+ │   │                  Transformers   pgvector    │           │
+ │   └─────────────────────────────────────────────┘           │
  │                                                             │
- ├── Ask Question ─────────────────────────────────────────┤
+ ├── Ask Question ---------------------------------------------┤
  │                                                             │
- │   ┌─────────────────── Retrieval Pipeline ────────────┐ │
- │   │                                                       │ │
- │   │  injection check ──► history-aware  ──►   embed query  │ │
- │   │  (across query +    retrieval query    (Transformers │ │
- │   │   history)          (last user turn     .js, cached) │ │
- │   │                      + new query)            │        │ │
- │   │                                                ▼        │ │
- │   │   stream answer ◄── LLM call    ◄──   vector search   │ │
- │   │   (SSE: step,       (Groq Llama       (pgvector cosine,│ │
- │   │    delta, citations) 3.3 70B,            optional doc │ │
- │   │                       streaming)          scope)       │ │
- │   └─────────────────────────────────────────────────────────────┘ │
+ │   ┌──────────── Retrieval Pipeline ─────────────┐           │
+ │   │ injection check -> retrieval query -> embed │           │
+ │   │ query + history   last turn + new   cached  │           │
+ │   │                                |            │           │
+ │   │ vector search -> LLM call -> answer         │           │
+ │   │ pgvector scope   Groq stream   SSE trace    │           │
+ │   └─────────────────────────────────────────────┘           │
  │                                                             │
- └── Streamed answer + transparent search trace ───────────────
+ └── Streamed answer + transparent search trace ---------------┘
 ```
 
 ---
@@ -83,7 +75,7 @@ User
 | **Per-document scope bypasses similarity threshold** | When the user explicitly chose a document, generic queries like "summarize this" or "explain it like I'm 5" carry little semantic signal but still deserve an answer. The threshold only filters when searching across the whole library. |
 | **History-aware retrieval** | Embedding query is built from the prior user turn + the new query, so follow-ups like "explain a bit more" still find relevant chunks. The LLM also receives recent turns as conversation context. |
 | **Buffered streaming emitter** | Internal `CITATIONS_JSON:` marker is held back at the tail until disambiguated, so it never leaks into the user-visible prose. |
-| **Content-hash deduplication** | Same document uploaded twice → skip re-embedding. SHA-256 of trimmed text content. |
+| **Content-hash deduplication** | Same document uploaded twice -> skip re-embedding. SHA-256 of trimmed text content. |
 | **Sliding-window chunking** | 500-token chunks with 100-token overlap. Sentence-boundary aware. Prevents info loss at chunk boundaries. |
 | **Result\<T, E\> over try/catch** | Explicit error handling. Every service function returns a typed `Result`. Business logic has zero `try/catch`. |
 | **Prompt-injection defense** | Pattern-based detection across the current query AND every prior user-role turn in history. User input wrapped in `<user_query>` delimiters. System prompts immutable. |
@@ -227,14 +219,14 @@ Open [http://localhost:3000](http://localhost:3000).
 ## Data Flow
 
 ```
-Upload: File → validate → parse → chunk → embed (local) → pgvector
+Upload: File -> validate -> parse -> chunk -> embed (local) -> pgvector
 
-Query:  Question → injection check (query + history) → history-aware
-        retrieval query → cached embed → pgvector search (optionally
-        scoped to one doc) → build prompt (system + history + context)
-        → Groq stream → SSE (step events + token deltas + citations)
+Query:  Question -> injection check (query + history) -> history-aware
+        retrieval query -> cached embed -> pgvector search (optionally
+        scoped to one doc) -> build prompt (system + history + context)
+        -> Groq stream -> SSE (step events + token deltas + citations)
 
-Delete: Document ID → cascade delete (document + all chunks + embeddings)
+Delete: Document ID -> cascade delete (document + all chunks + embeddings)
 ```
 
 All data flows unidirectionally. No circular dependencies. Each pipeline

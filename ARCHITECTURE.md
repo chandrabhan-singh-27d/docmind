@@ -7,29 +7,29 @@ Quick reference for understanding the codebase. Read this before contributing.
 ## Dependency Graph
 
 ```
-lib/result.ts                  ← Foundation: Result<T, E> type
-lib/errors.ts                  ← AppError discriminated union
-lib/cache/lru-cache.ts         ← Generic LRU+TTL cache primitive
-lib/db/schema.ts               ← Drizzle schema (documents, chunks)
-lib/db/connection.ts           ← DB connection singleton
-lib/llm/groq-client.ts         ← Groq API wrapper (chat + streaming)
-lib/embeddings/hf-embeddings.ts ← Transformers.js (local ONNX) embedding client
+lib/result.ts                   <- Foundation: Result<T, E> type
+lib/errors.ts                   <- AppError discriminated union
+lib/cache/lru-cache.ts          <- Generic LRU+TTL cache primitive
+lib/db/schema.ts                <- Drizzle schema (documents, chunks)
+lib/db/connection.ts            <- DB connection singleton
+lib/llm/groq-client.ts          <- Groq API wrapper (chat + streaming)
+lib/embeddings/hf-embeddings.ts <- Transformers.js (local ONNX) embedding client
 
-features/security/             ← Input validation, prompt-injection defense, rate limiter
-features/ingestion/            ← Upload → parse → chunk → embed → store
-features/retrieval/            ← Query → cached embed → search → build prompt
-features/chat/                 ← Chat orchestration + streaming UI components
+features/security/              <- Input validation, prompt-injection defense, rate limiter
+features/ingestion/             <- Upload -> parse -> chunk -> embed -> store
+features/retrieval/             <- Query -> cached embed -> search -> build prompt
+features/chat/                  <- Chat orchestration + streaming UI components
 
-components/                    ← Cross-cutting UI (theme-toggle)
-config/env.ts                  ← Zod-validated env, layered .env.local > .env > shell
+components/                     <- Cross-cutting UI (theme-toggle)
+config/env.ts                   <- Zod-validated env, layered .env.local > .env > shell
 
-app/api/                       ← Thin route handlers (rate-limit → validate → delegate)
-app/page.tsx                   ← Main page (tabs: Documents | Chat)
-app/layout.tsx                 ← Root layout + pre-hydration theme bootstrap script
-next.config.ts                 ← Security headers (CSP, HSTS, etc.) + serverExternalPackages
+app/api/                        <- Thin route handlers (rate-limit -> validate -> delegate)
+app/page.tsx                    <- Main page (tabs: Documents | Chat)
+app/layout.tsx                  <- Root layout + pre-hydration theme bootstrap script
+next.config.ts                  <- Security headers (CSP, HSTS, etc.) + serverExternalPackages
 ```
 
-**Flow:** `lib/ → features/security → features/ingestion → features/retrieval → features/chat → app/`
+**Flow:** `lib/ -> features/security -> features/ingestion -> features/retrieval -> features/chat -> app/`
 
 Lower layers never import from higher layers. No circular dependencies.
 
@@ -66,7 +66,7 @@ switch (error.type) {
 Pure function chain — each step takes input, returns `Result`:
 
 ```
-parseDocument(buffer) → chunkText(content) → embedChunks(chunks) →
+parseDocument(buffer) -> chunkText(content) -> embedChunks(chunks) ->
 insertDocument + insertChunks
 ```
 
@@ -81,11 +81,11 @@ Node `require`s rather than bundling their native bindings.
 ### Retrieval Pipeline
 
 ```
-hasInjection(query, history) → buildRetrievalQuery(query, history)
-  → lru-cache.get OR generateSingleEmbedding
-  → searchSimilarChunks(embedding, topK, optional documentId)
-  → buildMessages(context, history)
-  → streamChatCompletion → SSE stream
+hasInjection(query, history) -> buildRetrievalQuery(query, history)
+  -> lru-cache.get OR generateSingleEmbedding
+  -> searchSimilarChunks(embedding, topK, optional documentId)
+  -> buildMessages(context, history)
+  -> streamChatCompletion -> SSE stream
 ```
 
 Key behaviors:
