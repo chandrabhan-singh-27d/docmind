@@ -32,7 +32,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(() => { try { const t = localStorage.getItem('docmind-theme'); const sys = window.matchMedia('(prefers-color-scheme: dark)').matches; const dark = t ? t === 'dark' : sys; document.documentElement.classList.add(dark ? 'dark' : 'light'); } catch (_) {} })();`,
+            __html: `(() => { try { const t = localStorage.getItem('docmind-theme'); const sys = window.matchMedia('(prefers-color-scheme: dark)').matches; const isDark = t === 'dark' || ((t === null || t === 'system') && sys); document.documentElement.classList.add(isDark ? 'dark' : 'light'); } catch (_) {} })();`,
           }}
         />
       </head>
