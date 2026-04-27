@@ -7,7 +7,7 @@ import { getEnv } from '@/config/env';
 import { searchSimilarChunks } from '../repositories/vector-search-repo';
 import type { RetrievedChunk } from '../types';
 
-const MIN_SIMILARITY_THRESHOLD = 0.3;
+const MIN_SIMILARITY_THRESHOLD = 0.1;
 const CACHE_MAX_ENTRIES = 256;
 const CACHE_TTL_MS = 60 * 60 * 1000;
 
@@ -34,6 +34,7 @@ export const __embeddingCacheForTests = embeddingCache;
 export const searchDocuments = async (
   query: string,
   topK: number = 5,
+  documentId?: string,
 ): Promise<Result<ReadonlyArray<RetrievedChunk>, AppError>> => {
   const model = getEnv().EMBEDDING_MODEL;
   const key = cacheKey(query, model);
@@ -46,7 +47,7 @@ export const searchDocuments = async (
     embeddingCache.set(key, embedding);
   }
 
-  const chunks = await searchSimilarChunks(embedding, topK);
+  const chunks = await searchSimilarChunks(embedding, topK, documentId);
 
   const relevant = chunks.filter(
     (chunk) => chunk.similarity >= MIN_SIMILARITY_THRESHOLD,

@@ -1,9 +1,22 @@
 import type { Citation, RetrievedChunkDebug } from '@/features/retrieval/types';
 
+export interface SearchStep {
+  readonly id: string;
+  readonly label: string;
+  readonly detail?: string;
+}
+
 /** Params for streaming chat requests */
+export interface ChatHistoryEntry {
+  readonly role: 'user' | 'assistant';
+  readonly content: string;
+}
+
 export interface StreamParams {
   readonly query: string;
   readonly topK?: number;
+  readonly documentId?: string;
+  readonly history?: ReadonlyArray<ChatHistoryEntry>;
   readonly signal?: AbortSignal;
 }
 
@@ -12,6 +25,7 @@ export type SseEvent =
   | { readonly type: 'delta'; readonly content: string }
   | { readonly type: 'citations'; readonly data: string }
   | { readonly type: 'chunks'; readonly data: string }
+  | { readonly type: 'step'; readonly data: string }
   | { readonly type: 'done' }
   | { readonly type: 'error'; readonly data: string; readonly status: number };
 
@@ -20,6 +34,7 @@ export type ParsedSseEvent =
   | { readonly type: 'delta'; readonly content: string }
   | { readonly type: 'citations'; readonly citations: ReadonlyArray<Citation> }
   | { readonly type: 'chunks'; readonly chunks: ReadonlyArray<RetrievedChunkDebug> }
+  | { readonly type: 'step'; readonly step: SearchStep }
   | { readonly type: 'done' }
   | { readonly type: 'error'; readonly error: string };
 
@@ -30,4 +45,5 @@ export interface ChatMessage {
   readonly content: string;
   readonly citations?: ReadonlyArray<Citation>;
   readonly chunks?: ReadonlyArray<RetrievedChunkDebug>;
+  readonly steps?: ReadonlyArray<SearchStep>;
 }

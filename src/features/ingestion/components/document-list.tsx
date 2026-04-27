@@ -32,10 +32,17 @@ const fetchDocumentList = async (): Promise<ReadonlyArray<DocumentItem>> => {
   return data.documents as ReadonlyArray<DocumentItem>;
 };
 
+interface DocumentForChat {
+  readonly id: string;
+  readonly filename: string;
+}
+
 export default function DocumentList({
   refreshKey,
+  onChat,
 }: {
   readonly refreshKey: number;
+  readonly onChat?: (doc: DocumentForChat) => void;
 }) {
   const [documents, setDocuments] = useState<ReadonlyArray<DocumentItem>>([]);
   const [isPending, startTransition] = useTransition();
@@ -94,13 +101,23 @@ export default function DocumentList({
               {formatDate(doc.createdAt)}
             </p>
           </div>
-          <button
-            onClick={() => handleDelete(doc.id)}
-            disabled={isPending}
-            className="ml-3 shrink-0 rounded px-2 py-1 text-xs text-red-500 transition-colors hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-950"
-          >
-            Delete
-          </button>
+          <div className="ml-3 flex shrink-0 items-center gap-1">
+            {onChat && (
+              <button
+                onClick={() => onChat({ id: doc.id, filename: doc.filename })}
+                className="cursor-pointer rounded px-2 py-1 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-50 dark:hover:bg-blue-950"
+              >
+                Chat
+              </button>
+            )}
+            <button
+              onClick={() => handleDelete(doc.id)}
+              disabled={isPending}
+              className="cursor-pointer rounded px-2 py-1 text-xs text-red-500 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-red-950"
+            >
+              Delete
+            </button>
+          </div>
         </li>
       ))}
     </ul>

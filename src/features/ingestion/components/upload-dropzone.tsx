@@ -97,7 +97,7 @@ export default function UploadDropzone({
 
   return (
     <div
-      className={`relative rounded-lg border-2 border-dashed p-8 text-center transition-colors ${borderColor}`}
+      className={`relative rounded-lg border-2 border-dashed p-6 text-center transition-colors sm:p-8 ${borderColor}`}
       onDragOver={(e) => {
         e.preventDefault();
         setIsDragOver(true);

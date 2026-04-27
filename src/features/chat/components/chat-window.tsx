@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
-import type { FormEvent } from 'react';
-import type { ChatMessage, ParsedSseEvent } from '../types';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import type { FormEvent, KeyboardEvent } from 'react';
+import type { ChatMessage, ParsedSseEvent, SearchStep } from '../types';
 import type { Citation, RetrievedChunkDebug } from '@/features/retrieval/types';
 import MessageBubble from './message-bubble';
 
@@ -30,6 +30,13 @@ const applyStreamEvent = (
     case 'chunks':
       return messages.map((m) =>
         m.id === targetId ? { ...m, chunks: event.chunks } : m,
+      );
+
+    case 'step':
+      return messages.map((m) =>
+        m.id === targetId
+          ? { ...m, steps: [...(m.steps ?? []), event.step] }
+          : m,
       );
 
     case 'error':
@@ -62,6 +69,11 @@ const parseSseData = (raw: string): ParsedSseEvent | null => {
           type: 'chunks',
           chunks: JSON.parse((data['chunks'] as string) ?? '[]') as ReadonlyArray<RetrievedChunkDebug>,
         };
+      case 'step':
+        return {
+          type: 'step',
+          step: JSON.parse(data['step'] as string) as SearchStep,
+        };
       case 'error':
         return { type: 'error', error: (data['error'] as string) ?? 'An error occurred' };
       case 'done':
@@ -74,12 +86,39 @@ const parseSseData = (raw: string): ParsedSseEvent | null => {
   }
 };
 
-export default function ChatWindow() {
+interface ScopeDoc {
+  readonly id: string;
+  readonly filename: string;
+}
+
+const HISTORY_TURNS = 6;
+
+export default function ChatWindow({
+  scopeDoc,
+  onClearScope,
+}: {
+  readonly scopeDoc?: ScopeDoc | null;
+  readonly onClearScope?: () => void;
+}) {
   const [messages, setMessages] = useState<ReadonlyArray<ChatMessage>>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [historyIndex, setHistoryIndex] = useState<number | null>(null);
+  const [draft, setDraft] = useState('');
+
+  useEffect(() => {
+    if (!isLoading) {
+      inputRef.current?.focus();
+    }
+  }, [isLoading]);
+
+  const userMessages = useMemo(
+    () => messages.filter((m) => m.role === 'user').map((m) => m.content),
+    [messages],
+  );
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -104,15 +143,25 @@ export default function ChatWindow() {
         { id: assistantId, role: 'assistant', content: '' },
       ]);
       setInput('');
+      setHistoryIndex(null);
+      setDraft('');
       setIsLoading(true);
 
       abortRef.current = new AbortController();
+
+      const history = messages
+        .slice(-HISTORY_TURNS)
+        .map((m) => ({ role: m.role, content: m.content }));
 
       try {
         const response = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query }),
+          body: JSON.stringify({
+            query,
+            ...(scopeDoc ? { documentId: scopeDoc.id } : {}),
+            ...(history.length > 0 ? { history } : {}),
+          }),
           signal: abortRef.current.signal,
         });
 
@@ -162,40 +211,97 @@ export default function ChatWindow() {
         setIsLoading(false);
       }
     },
-    [input, isLoading],
+    [input, isLoading, messages, scopeDoc],
+  );
+
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLInputElement>) => {
+      if (userMessages.length === 0) return;
+
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (historyIndex === null) {
+          setDraft(input);
+          setHistoryIndex(userMessages.length - 1);
+          setInput(userMessages[userMessages.length - 1] ?? '');
+        } else if (historyIndex > 0) {
+          const next = historyIndex - 1;
+          setHistoryIndex(next);
+          setInput(userMessages[next] ?? '');
+        }
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (historyIndex === null) return;
+        const next = historyIndex + 1;
+        if (next >= userMessages.length) {
+          setHistoryIndex(null);
+          setInput(draft);
+        } else {
+          setHistoryIndex(next);
+          setInput(userMessages[next] ?? '');
+        }
+      }
+    },
+    [historyIndex, input, draft, userMessages],
   );
 
   return (
-    <div className="flex flex-1 flex-col">
-      <div className="flex-1 space-y-4 overflow-y-auto p-4">
+    <div className="flex flex-1 min-h-0 flex-col">
+      {scopeDoc && (
+        <div className="flex items-center justify-between border-b border-zinc-200 bg-zinc-50 px-4 py-2 text-xs dark:border-zinc-800 dark:bg-zinc-900">
+          <span className="text-zinc-600 dark:text-zinc-300">
+            Scoped to <span className="font-medium">{scopeDoc.filename}</span>
+          </span>
+          {onClearScope && (
+            <button
+              type="button"
+              onClick={onClearScope}
+              className="cursor-pointer text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200"
+            >
+              Clear scope
+            </button>
+          )}
+        </div>
+      )}
+      <div className="flex-1 min-h-0 space-y-4 overflow-y-auto p-3 sm:p-4">
         {messages.length === 0 && (
           <p className="text-center text-sm text-zinc-400">
             Ask a question about your uploaded documents
           </p>
         )}
-        {messages.map((msg) => (
-          <MessageBubble key={msg.id} message={msg} />
+        {messages.map((msg, i) => (
+          <MessageBubble
+            key={msg.id}
+            message={msg}
+            isStreaming={isLoading && i === messages.length - 1}
+          />
         ))}
         <div ref={messagesEndRef} />
       </div>
 
       <form
         onSubmit={(e) => void handleSubmit(e)}
-        className="border-t border-zinc-200 p-4 dark:border-zinc-800"
+        className="border-t border-zinc-200 p-3 sm:p-4 dark:border-zinc-800"
       >
         <div className="flex gap-2">
           <input
+            ref={inputRef}
             type="text"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about your documents..."
+            onChange={(e) => {
+              setInput(e.target.value);
+              if (historyIndex !== null) setHistoryIndex(null);
+            }}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask about your documents... (↑/↓ for history)"
+            autoFocus
             className="flex-1 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm outline-none transition-colors focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-900"
             disabled={isLoading}
           />
           <button
             type="submit"
             disabled={isLoading || !input.trim()}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+            className="cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Ask
           </button>
