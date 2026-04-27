@@ -1,45 +1,60 @@
+import { pipeline, type FeatureExtractionPipeline } from '@huggingface/transformers';
 import type { Result } from '@/lib/result';
 import { ok, err } from '@/lib/result';
 import type { AppError } from '@/lib/errors';
 import { getEnv } from '@/config/env';
-
-const HF_INFERENCE_URL = 'https://router.huggingface.co/hf-inference/pipeline/feature-extraction';
 
 interface EmbeddingParams {
   readonly texts: ReadonlyArray<string>;
   readonly model?: string;
 }
 
+/**
+ * Embeddings run **locally** via @huggingface/transformers (Transformers.js)
+ * with the ONNX-converted Xenova/all-MiniLM-L6-v2 model. No HF Inference API
+ * call — the model is downloaded once to ~/.cache/huggingface on first use
+ * and then served from this Node process.
+ *
+ * Configuration:
+ *   pooling: 'mean'   — average token embeddings (matches sentence-transformers)
+ *   normalize: true   — L2-normalize so cosine similarity == dot product
+ */
+let pipelinePromise: Promise<FeatureExtractionPipeline> | null = null;
+let currentModel: string | null = null;
+
+const getPipeline = async (model: string): Promise<FeatureExtractionPipeline> => {
+  if (pipelinePromise && currentModel === model) return pipelinePromise;
+  currentModel = model;
+  pipelinePromise = pipeline('feature-extraction', model) as Promise<FeatureExtractionPipeline>;
+  return pipelinePromise;
+};
+
 export const generateEmbeddings = async (
   params: EmbeddingParams,
 ): Promise<Result<ReadonlyArray<ReadonlyArray<number>>, AppError>> => {
-  const env = getEnv();
-  const model = params.model ?? env.EMBEDDING_MODEL;
-  const url = `${HF_INFERENCE_URL}/${model}`;
+  const model = params.model ?? getEnv().EMBEDDING_MODEL;
 
   try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${env.HF_API_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ inputs: params.texts }),
+    const extractor = await getPipeline(model);
+    const tensor = await extractor([...params.texts], {
+      pooling: 'mean',
+      normalize: true,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      return err({
-        type: 'EMBEDDING_FAILED',
-        reason: `HuggingFace API error (${response.status}): ${errorText}`,
-      });
+    const dim = tensor.dims[1];
+    if (typeof dim !== 'number') {
+      return err({ type: 'EMBEDDING_FAILED', reason: 'Unexpected tensor shape' });
     }
 
-    const embeddings = (await response.json()) as ReadonlyArray<ReadonlyArray<number>>;
+    const data = tensor.data as Float32Array;
+    const embeddings: number[][] = [];
+    for (let i = 0; i < params.texts.length; i += 1) {
+      embeddings.push(Array.from(data.slice(i * dim, (i + 1) * dim)));
+    }
+
     return ok(embeddings);
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Unknown embedding error';
+    const message = error instanceof Error ? error.message : 'Unknown embedding error';
     return err({ type: 'EMBEDDING_FAILED', reason: message });
   }
 };

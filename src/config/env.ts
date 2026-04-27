@@ -4,13 +4,13 @@ import { z } from 'zod/v4';
 
 const envSchema = z.object({
   GROQ_API_KEY: z.string().min(1, 'GROQ_API_KEY is required'),
-  HF_API_TOKEN: z.string().min(1, 'HF_API_TOKEN is required'),
+  HF_API_TOKEN: z.string().optional(),
   DATABASE_URL: z
     .string()
     .min(1)
-    .default('postgresql://docmind:docmind_local@localhost:5432/docmind'),
+    .default('postgresql://docmind:docmind_local@localhost:5433/docmind'),
   MAX_UPLOAD_SIZE_MB: z.coerce.number().positive().default(20),
-  EMBEDDING_MODEL: z.string().default('sentence-transformers/all-MiniLM-L6-v2'),
+  EMBEDDING_MODEL: z.string().default('Xenova/all-MiniLM-L6-v2'),
   LLM_MODEL: z.string().default('llama-3.3-70b-versatile'),
   MAX_CHUNKS_PER_QUERY: z.coerce.number().positive().default(5),
   RATE_LIMIT_RPM: z.coerce.number().positive().default(25),

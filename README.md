@@ -12,7 +12,7 @@ RAG-powered knowledge base with citations. Upload documents, ask questions, get 
 ## What It Does
 
 1. **Upload** PDFs, Markdown, or plain text documents
-2. **Automatic ingestion** — parses, chunks (sliding window with overlap), embeds via HuggingFace, stores in pgvector
+2. **Automatic ingestion** — parses, chunks (sliding window with overlap), embeds locally via Transformers.js, stores in pgvector
 3. **Ask questions** — natural language queries search across all your documents
 4. **Get cited answers** — Groq-powered LLM answers grounded in retrieved context, with inline source citations
 
@@ -58,7 +58,7 @@ User
 | Decision | Why |
 |----------|-----|
 | **Groq (Llama 3.3 70B)** for generation | Free tier, fast inference, strong reasoning. No API costs. |
-| **HuggingFace Inference API** for embeddings | Free, no local GPU needed. `all-MiniLM-L6-v2` produces 384-dim vectors — small, fast, accurate. |
+| **Transformers.js (local)** for embeddings | Runs `all-MiniLM-L6-v2` in-process via ONNX. Free, no API token, no rate limits. 384-dim vectors. |
 | **pgvector over Pinecone/Chroma** | Self-hosted, free, SQL joins for metadata filtering, runs in Docker. No vendor lock-in. |
 | **Content-hash deduplication** | Same document uploaded twice → skip re-embedding. SHA-256 of text content as dedup key. |
 | **Sliding window chunking** | 500-token chunks with 100-token overlap. Prevents info loss at boundaries. Sentence-boundary aware. |
@@ -86,7 +86,7 @@ User
 | **Framework** | Next.js 16 (App Router) |
 | **Language** | TypeScript (strict mode, no `any`) |
 | **LLM** | Groq — Llama 3.3 70B Versatile (free tier) |
-| **Embeddings** | HuggingFace Inference API — all-MiniLM-L6-v2 (free) |
+| **Embeddings** | Transformers.js — all-MiniLM-L6-v2 (local, no API) |
 | **Vector DB** | PostgreSQL + pgvector (Docker) |
 | **ORM** | Drizzle |
 | **Validation** | Zod v4 |
@@ -124,7 +124,7 @@ src/
 │       └── validate-upload.ts     # File validation (MIME, size, magic bytes)
 └── lib/
     ├── db/                        # Drizzle schema + connection
-    ├── embeddings/                # HuggingFace client
+    ├── embeddings/                # Transformers.js client (local ONNX)
     ├── llm/                       # Groq client
     ├── errors.ts                  # Discriminated union error types
     └── result.ts                  # Result<T, E> type
@@ -140,7 +140,12 @@ src/
 - pnpm
 - Podman or Docker
 - [Groq API key](https://console.groq.com/) (free)
-- [HuggingFace API token](https://huggingface.co/settings/tokens) (free)
+
+> Embeddings run **locally** in the Node process via
+> [`@huggingface/transformers`](https://huggingface.co/docs/transformers.js) — no
+> HF token, no rate limits, no network round-trip per query. The
+> `Xenova/all-MiniLM-L6-v2` model (~25MB) is downloaded once on first request
+> and cached at `~/.cache/huggingface`.
 
 ### Setup
 
@@ -152,9 +157,10 @@ cd docmind
 # Install dependencies
 pnpm install
 
-# Start pgvector (Podman)
+# Start pgvector (Podman). Host port 5433 is used so this does not clash
+# with a system-installed postgres already listening on 5432.
 podman run -d --name docmind-db \
-  -p 5432:5432 \
+  -p 5433:5432 \
   -e POSTGRES_USER=docmind \
   -e POSTGRES_PASSWORD=docmind_local \
   -e POSTGRES_DB=docmind \
