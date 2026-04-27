@@ -49,13 +49,18 @@ export const searchDocuments = async (
 
   const chunks = await searchSimilarChunks(embedding, topK, documentId);
 
+  // When a specific document is scoped, the user already chose what to
+  // search — always return the top-K chunks regardless of similarity so
+  // generic queries like "summarize this" or "explain it to a 5 yo" still
+  // produce an answer. Threshold filtering only applies to the
+  // search-everything case where unrelated docs would otherwise leak in.
+  if (documentId) {
+    return ok(chunks);
+  }
+
   const relevant = chunks.filter(
     (chunk) => chunk.similarity >= MIN_SIMILARITY_THRESHOLD,
   );
-
-  if (relevant.length === 0) {
-    return ok([]);
-  }
 
   return ok(relevant);
 };
