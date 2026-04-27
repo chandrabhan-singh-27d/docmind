@@ -7,21 +7,22 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-serif: 'Iowan Old Style', 'Charter', 'Source Serif Pro', Georgia, ui-serif, serif;
 }
 
 :root {
-  --background: #fafafa;
-  --foreground: #0a0a0a;
+  --background: #faf9f6;
+  --foreground: #1c1c1f;
 }
 
 .dark {
-  --background: #0a0a0a;
-  --foreground: #ededed;
+  --background: #1a1a1d;
+  --foreground: #e6e4e0;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #1a1a1d;
+    --foreground: #e6e4e0;
   }
 }

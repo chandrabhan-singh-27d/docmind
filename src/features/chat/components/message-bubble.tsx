@@ -15,13 +15,17 @@ export default function MessageBubble({
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div
-        className={`max-w-[85%] space-y-3 rounded-lg px-3 py-2 text-sm sm:max-w-[80%] sm:px-4 sm:py-3 ${
+        className={`max-w-[90%] space-y-3 rounded-lg px-4 py-3 sm:max-w-[80%] sm:px-5 sm:py-4 ${
           isUser
             ? 'bg-blue-600 text-white'
             : 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100'
         }`}
       >
-        <p className="whitespace-pre-wrap text-sm leading-relaxed">
+        <p
+          className={`whitespace-pre-wrap font-serif text-[16px] leading-[1.65] sm:text-[17px] ${
+            isUser ? '' : 'tracking-[-0.005em]'
+          }`}
+        >
           {message.content}
         </p>
 

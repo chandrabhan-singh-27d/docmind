@@ -18,7 +18,7 @@ export default function SearchSteps({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex cursor-pointer items-center gap-1 text-xs font-semibold text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+        className="flex cursor-pointer items-center gap-1 text-sm font-semibold text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
       >
         <span>{open ? '▾' : '▸'}</span>
         <span>How I searched ({steps.length})</span>
@@ -29,7 +29,7 @@ export default function SearchSteps({
       {open && (
         <ol className="mt-2 space-y-1 border-l-2 border-zinc-200 pl-3 dark:border-zinc-800">
           {steps.map((step) => (
-            <li key={step.id} className="text-xs text-zinc-600 dark:text-zinc-400">
+            <li key={step.id} className="text-sm text-zinc-600 dark:text-zinc-400">
               <span className="font-medium text-zinc-700 dark:text-zinc-300">
                 {step.label}
               </span>

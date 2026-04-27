@@ -248,7 +248,7 @@ export default function ChatWindow({
   return (
     <div className="flex flex-1 min-h-0 flex-col">
       {scopeDoc && (
-        <div className="flex items-center justify-between border-b border-zinc-200 bg-zinc-50 px-4 py-2 text-xs dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="flex items-center justify-between border-b border-zinc-200 bg-zinc-50 px-4 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-800/60">
           <span className="text-zinc-600 dark:text-zinc-300">
             Scoped to <span className="font-medium">{scopeDoc.filename}</span>
           </span>
@@ -295,13 +295,13 @@ export default function ChatWindow({
             onKeyDown={handleKeyDown}
             placeholder="Ask about your documents... (↑/↓ for history)"
             autoFocus
-            className="flex-1 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm outline-none transition-colors focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-900"
+            className="flex-1 rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-base outline-none transition-colors focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-800"
             disabled={isLoading}
           />
           <button
             type="submit"
             disabled={isLoading || !input.trim()}
-            className="cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="cursor-pointer rounded-lg bg-blue-600 px-5 py-2.5 text-base font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Ask
           </button>

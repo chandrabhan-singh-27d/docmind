@@ -31,8 +31,8 @@ export default function Home() {
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col p-4 sm:p-8 min-h-0">
       <header className="mb-4 flex items-start justify-between gap-3 sm:mb-6">
         <div className="min-w-0 space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">DocMind</h1>
-          <p className="text-sm text-zinc-500 sm:text-base dark:text-zinc-400">
+          <h1 className="font-serif text-3xl font-semibold tracking-tight sm:text-4xl">DocMind</h1>
+          <p className="text-base text-zinc-500 sm:text-lg dark:text-zinc-400">
             Chat with your documents — grounded answers, transparent search.
           </p>
         </div>
@@ -42,7 +42,7 @@ export default function Home() {
       <nav className="mb-4 flex gap-1 border-b border-zinc-200 sm:mb-6 dark:border-zinc-800">
         <button
           onClick={() => setActiveTab('documents')}
-          className={`cursor-pointer px-3 py-2 text-sm font-medium transition-colors sm:px-4 ${
+          className={`cursor-pointer px-3 py-2 text-base font-medium transition-colors sm:px-4 ${
             activeTab === 'documents'
               ? 'border-b-2 border-blue-600 text-blue-600'
               : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
@@ -52,7 +52,7 @@ export default function Home() {
         </button>
         <button
           onClick={() => setActiveTab('chat')}
-          className={`cursor-pointer truncate px-3 py-2 text-sm font-medium transition-colors sm:px-4 ${
+          className={`cursor-pointer truncate px-3 py-2 text-base font-medium transition-colors sm:px-4 ${
             activeTab === 'chat'
               ? 'border-b-2 border-blue-600 text-blue-600'
               : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
@@ -65,11 +65,11 @@ export default function Home() {
       {activeTab === 'documents' && (
         <div className="flex-1 min-h-0 space-y-6 overflow-y-auto pr-1">
           <section className="space-y-4">
-            <h2 className="text-lg font-semibold">Upload Documents</h2>
+            <h2 className="text-xl font-semibold">Upload Documents</h2>
             <UploadDropzone onUploadComplete={handleUploadComplete} />
           </section>
           <section className="space-y-4">
-            <h2 className="text-lg font-semibold">Your Documents</h2>
+            <h2 className="text-xl font-semibold">Your Documents</h2>
             <DocumentList refreshKey={refreshKey} onChat={handleChatWithDoc} />
           </section>
         </div>
