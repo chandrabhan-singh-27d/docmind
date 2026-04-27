@@ -43,8 +43,12 @@ export default function ThemeToggle() {
     return () => media.removeEventListener('change', onChange);
   }, []);
 
+  // Read the live DOM class (not React state) when computing the next theme.
+  // The head script may have applied a class before useEffect runs, so React
+  // state could be stale on the very first click. DOM is the source of truth.
   const toggle = useCallback(() => {
-    const next: Theme = theme === 'dark' ? 'light' : 'dark';
+    const current = readEffectiveTheme();
+    const next: Theme = current === 'dark' ? 'light' : 'dark';
     applyClass(next);
     setTheme(next);
     try {
@@ -52,7 +56,7 @@ export default function ThemeToggle() {
     } catch {
       // storage unavailable — still toggle for the current session
     }
-  }, [theme]);
+  }, []);
 
   const isDark = theme === 'dark';
   const label = isDark ? 'Switch to light mode' : 'Switch to dark mode';
