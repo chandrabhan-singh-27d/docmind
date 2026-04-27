@@ -7,20 +7,7 @@ import { parseLlmResponse } from './parse-citations';
 import type { AppError } from '@/lib/errors';
 import { toErrorResponse, toHttpStatus } from '@/lib/errors';
 import type { ChatHistoryEntry, SseEvent, StreamParams } from '../types';
-
-/**
- * Build the embedding query from recent conversation, so follow-ups like
- * "explain a bit more" can still retrieve relevant chunks. We bias toward
- * the prior user turn (which carried the topic) plus the new query.
- */
-const buildRetrievalQuery = (
-  query: string,
-  history?: ReadonlyArray<ChatHistoryEntry>,
-): string => {
-  if (!history || history.length === 0) return query;
-  const lastUserTurn = [...history].reverse().find((m) => m.role === 'user');
-  return lastUserTurn ? `${lastUserTurn.content}\n${query}` : query;
-};
+import { buildRetrievalQuery, safeEmitPosition } from './stream-utils';
 
 const formatSseEvent = (event: SseEvent): string => {
   switch (event.type) {
@@ -64,25 +51,6 @@ const toChunkDebug = (chunks: ReadonlyArray<{
 const CITATIONS_PREFIX = 'CITATIONS_JSON:';
 const encoder = new TextEncoder();
 
-/**
- * Returns the largest index up to which `text` is safe to emit without
- * leaking even a partial "CITATIONS_JSON:" marker. If the marker is fully
- * present, returns its start; otherwise checks whether any non-empty tail
- * of `text` could be a prefix of the marker, and holds those bytes back.
- */
-const safeEmitPosition = (text: string, marker: string): number => {
-  const fullIdx = text.indexOf(marker);
-  if (fullIdx !== -1) return fullIdx;
-
-  const maxK = Math.min(text.length, marker.length - 1);
-  for (let k = maxK; k > 0; k -= 1) {
-    if (text.endsWith(marker.slice(0, k))) {
-      return text.length - k;
-    }
-  }
-  return text.length;
-};
-
 const createErrorStream = (error: AppError): ReadableStream => {
   const response = toErrorResponse(error);
   const status = toHttpStatus(error);
@@ -100,10 +68,26 @@ const createErrorStream = (error: AppError): ReadableStream => {
   });
 };
 
+/**
+ * Run prompt-injection detection across the current query AND every prior
+ * user-role turn in history. The Zod schema validates shape but not content,
+ * so a client could craft a history entry that bypasses the per-query check
+ * — history items go to the LLM as plain user messages and are not wrapped
+ * in <user_query> tags, so the system-prompt defense doesn't cover them.
+ */
+const hasInjection = (
+  query: string,
+  history: ReadonlyArray<ChatHistoryEntry> | undefined,
+): boolean => {
+  if (detectPromptInjection(query)) return true;
+  if (!history) return false;
+  return history.some((m) => m.role === 'user' && detectPromptInjection(m.content));
+};
+
 export const askQuestionStream = async (
   params: StreamParams,
 ): Promise<ReadableStream> => {
-  if (detectPromptInjection(params.query)) {
+  if (hasInjection(params.query, params.history)) {
     return createErrorStream({ type: 'PROMPT_INJECTION_DETECTED' });
   }
 
