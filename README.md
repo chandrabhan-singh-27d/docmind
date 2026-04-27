@@ -205,6 +205,16 @@ All data flows unidirectionally. No circular dependencies. Each pipeline step is
 
 ---
 
+## Observability
+
+A self-hosted error pipeline (browser + server errors → Postgres →
+Metabase dashboards) is designed in [`docs/LOGGING.md`](docs/LOGGING.md).
+The plan reuses the existing Postgres container and adds Metabase as a
+single extra Docker service — no per-event pricing, no third-party data
+sharing.
+
+---
+
 ## License
 
 MIT

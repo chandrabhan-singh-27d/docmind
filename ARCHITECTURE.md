@@ -85,6 +85,13 @@ All DB access through repository functions in `features/*/repositories/`. Servic
 
 ---
 
+## Observability
+
+Error pipeline (frontend + backend → Postgres → Metabase) is documented
+separately in [`docs/LOGGING.md`](docs/LOGGING.md). The plan is
+self-hosted, free at scale, and designed so swapping to Sentry later is
+a single-file change.
+
 ## Environment
 
 All env vars validated at runtime via Zod (`config/env.ts`). App fails fast with a clear error if any are missing.
