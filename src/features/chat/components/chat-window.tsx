@@ -241,7 +241,7 @@ export default function ChatWindow({
   );
 
   return (
-    <div className="flex flex-1 min-h-0 flex-col">
+    <div data-testid="chat-window" className="flex flex-1 min-h-0 flex-col">
       {scopeDoc && (
         <div className="flex items-center justify-between border-b border-zinc-200 bg-zinc-50 px-4 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-800/60">
           <span className="text-zinc-600 dark:text-zinc-300">
@@ -258,7 +258,7 @@ export default function ChatWindow({
           )}
         </div>
       )}
-      <div className="flex-1 min-h-0 space-y-4 overflow-y-auto p-3 sm:p-4">
+      <div data-testid="chat-region" className="flex-1 min-h-0 space-y-4 overflow-y-auto p-3 sm:p-4">
         {messages.length === 0 && (
           <p className="text-center text-sm text-zinc-400">
             Ask a question about your uploaded documents

@@ -89,6 +89,8 @@ export default function DocumentList({
       {documents.map((doc) => (
         <li
           key={doc.id}
+          data-testid="document-row"
+          data-filename={doc.filename}
           className="flex items-center justify-between rounded-lg border border-zinc-200 p-3 dark:border-zinc-800"
         >
           <div className="min-w-0 flex-1">

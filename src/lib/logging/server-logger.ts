@@ -41,4 +41,3 @@ export const logEvent = async (envelope: ServerLogEnvelope): Promise<void> => {
   }
 };
 
-
