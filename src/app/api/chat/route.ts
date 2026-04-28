@@ -5,9 +5,16 @@ import { askQuestionStream } from '@/features/chat/services/ask-question-stream'
 import { getClientKey, getDefaultRateLimiter } from '@/features/security/rate-limiter';
 import { toErrorResponse, toHttpStatus } from '@/lib/errors';
 
+const ChatHistoryEntrySchema = z.object({
+  role: z.enum(['user', 'assistant']),
+  content: z.string().max(4000),
+});
+
 const ChatRequestSchema = z.object({
   query: z.string().min(1, 'Query cannot be empty').max(2000, 'Query too long'),
   topK: z.number().int().positive().max(10).optional(),
+  documentId: z.string().uuid().optional(),
+  history: z.array(ChatHistoryEntrySchema).max(20).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -52,6 +59,8 @@ export async function POST(request: NextRequest) {
   const stream = await askQuestionStream({
     query: parsed.data.query,
     topK: parsed.data.topK,
+    documentId: parsed.data.documentId,
+    history: parsed.data.history,
     signal: request.signal,
   });
 

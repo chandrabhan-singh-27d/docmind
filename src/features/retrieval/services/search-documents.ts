@@ -7,7 +7,7 @@ import { getEnv } from '@/config/env';
 import { searchSimilarChunks } from '../repositories/vector-search-repo';
 import type { RetrievedChunk } from '../types';
 
-const MIN_SIMILARITY_THRESHOLD = 0.3;
+const MIN_SIMILARITY_THRESHOLD = 0.1;
 const CACHE_MAX_ENTRIES = 256;
 const CACHE_TTL_MS = 60 * 60 * 1000;
 
@@ -34,6 +34,7 @@ export const __embeddingCacheForTests = embeddingCache;
 export const searchDocuments = async (
   query: string,
   topK: number = 5,
+  documentId?: string,
 ): Promise<Result<ReadonlyArray<RetrievedChunk>, AppError>> => {
   const model = getEnv().EMBEDDING_MODEL;
   const key = cacheKey(query, model);
@@ -46,15 +47,20 @@ export const searchDocuments = async (
     embeddingCache.set(key, embedding);
   }
 
-  const chunks = await searchSimilarChunks(embedding, topK);
+  const chunks = await searchSimilarChunks(embedding, topK, documentId);
+
+  // When a specific document is scoped, the user already chose what to
+  // search — always return the top-K chunks regardless of similarity so
+  // generic queries like "summarize this" or "explain it to a 5 yo" still
+  // produce an answer. Threshold filtering only applies to the
+  // search-everything case where unrelated docs would otherwise leak in.
+  if (documentId) {
+    return ok(chunks);
+  }
 
   const relevant = chunks.filter(
     (chunk) => chunk.similarity >= MIN_SIMILARITY_THRESHOLD,
   );
-
-  if (relevant.length === 0) {
-    return ok([]);
-  }
 
   return ok(relevant);
 };

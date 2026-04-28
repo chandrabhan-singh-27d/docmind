@@ -97,7 +97,7 @@ export default function UploadDropzone({
 
   return (
     <div
-      className={`relative rounded-lg border-2 border-dashed p-8 text-center transition-colors ${borderColor}`}
+      className={`relative rounded-lg border-2 border-dashed p-6 text-center transition-colors sm:p-8 ${borderColor}`}
       onDragOver={(e) => {
         e.preventDefault();
         setIsDragOver(true);
@@ -114,17 +114,17 @@ export default function UploadDropzone({
       />
 
       <div className="space-y-2">
-        <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        <p className="text-base font-medium text-zinc-700 dark:text-zinc-300">
           {state.status === 'uploading'
             ? 'Processing...'
             : 'Drop a document here or click to upload'}
         </p>
-        <p className="text-xs text-zinc-500">PDF, TXT, or Markdown (max 20MB)</p>
+        <p className="text-sm text-zinc-500">PDF, TXT, or Markdown (max 20MB)</p>
       </div>
 
       {state.message && (
         <p
-          className={`mt-3 text-sm ${
+          className={`mt-3 text-base ${
             state.status === 'error'
               ? 'text-red-600'
               : state.status === 'success'

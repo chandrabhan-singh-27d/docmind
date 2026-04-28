@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db/connection';
 import { documents, chunks } from '@/lib/db/schema';
 import type { Document, NewDocument, NewChunk } from '@/lib/db/schema';
@@ -65,3 +65,11 @@ export const deleteDocument = async (documentId: string): Promise<void> => {
 
 export const listDocuments = async (): Promise<ReadonlyArray<Document>> =>
   db.select().from(documents).orderBy(documents.createdAt);
+
+export const countChunks = async (): Promise<number> => {
+  const result = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(chunks);
+
+  return result[0]?.count ?? 0;
+};

@@ -10,10 +10,11 @@ import type { RetrievedChunk } from '../types';
 export const searchSimilarChunks = async (
   queryEmbedding: ReadonlyArray<number>,
   topK: number = 5,
+  documentId?: string,
 ): Promise<ReadonlyArray<RetrievedChunk>> => {
   const embeddingStr = `[${queryEmbedding.join(',')}]`;
 
-  const results = await db
+  const baseQuery = db
     .select({
       id: chunks.id,
       documentId: chunks.documentId,
@@ -23,9 +24,13 @@ export const searchSimilarChunks = async (
       filename: documents.filename,
     })
     .from(chunks)
-    .innerJoin(documents, sql`${chunks.documentId} = ${documents.id}`)
+    .innerJoin(documents, sql`${chunks.documentId} = ${documents.id}`);
+
+  const filtered = documentId
+    ? baseQuery.where(sql`${chunks.documentId} = ${documentId}`)
+    : baseQuery;
+
+  return filtered
     .orderBy(sql`${chunks.embedding} <=> ${embeddingStr}::vector`)
     .limit(topK);
-
-  return results;
 };
