@@ -1,5 +1,15 @@
 import type { Citation, RetrievedChunkDebug } from '@/features/retrieval/types';
 
+/**
+ * The minimal document shape used to scope a chat session to one document.
+ * Shared by page.tsx (state), document-list.tsx (CTA payload), and
+ * chat-window.tsx (banner / request body).
+ */
+export interface ChatScopeDoc {
+  readonly id: string;
+  readonly filename: string;
+}
+
 export interface SearchStep {
   readonly id: string;
   readonly label: string;

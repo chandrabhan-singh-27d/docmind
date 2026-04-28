@@ -14,7 +14,8 @@ const applyClass = (theme: Theme): void => {
 const hasExplicitPreference = (): boolean => {
   try {
     return localStorage.getItem(STORAGE_KEY) !== null;
-  } catch {
+  } catch (err) {
+    console.error('[theme-toggle] localStorage read failed', err);
     return false;
   }
 };
@@ -53,8 +54,8 @@ export default function ThemeToggle() {
     setTheme(next);
     try {
       localStorage.setItem(STORAGE_KEY, next);
-    } catch {
-      // storage unavailable — still toggle for the current session
+    } catch (err) {
+      console.error('[theme-toggle] localStorage write failed; choice will not persist', err);
     }
   }, []);
 

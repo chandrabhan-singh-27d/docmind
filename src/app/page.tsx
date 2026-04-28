@@ -5,11 +5,7 @@ import UploadDropzone from '@/features/ingestion/components/upload-dropzone';
 import DocumentList from '@/features/ingestion/components/document-list';
 import ChatWindow from '@/features/chat/components/chat-window';
 import ThemeToggle from '@/components/theme-toggle';
-
-interface ChatScopeDoc {
-  readonly id: string;
-  readonly filename: string;
-}
+import type { ChatScopeDoc } from '@/features/chat/types';
 
 export default function Home() {
   const [refreshKey, setRefreshKey] = useState(0);

@@ -32,17 +32,14 @@ const fetchDocumentList = async (): Promise<ReadonlyArray<DocumentItem>> => {
   return data.documents as ReadonlyArray<DocumentItem>;
 };
 
-interface DocumentForChat {
-  readonly id: string;
-  readonly filename: string;
-}
+import type { ChatScopeDoc } from '@/features/chat/types';
 
 export default function DocumentList({
   refreshKey,
   onChat,
 }: {
   readonly refreshKey: number;
-  readonly onChat?: (doc: DocumentForChat) => void;
+  readonly onChat?: (doc: ChatScopeDoc) => void;
 }) {
   const [documents, setDocuments] = useState<ReadonlyArray<DocumentItem>>([]);
   const [isPending, startTransition] = useTransition();

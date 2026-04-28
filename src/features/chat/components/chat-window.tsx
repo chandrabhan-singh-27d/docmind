@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import type { FormEvent, KeyboardEvent } from 'react';
-import type { ChatMessage, ParsedSseEvent, SearchStep } from '../types';
+import type { ChatMessage, ChatScopeDoc, ParsedSseEvent, SearchStep } from '../types';
 import type { Citation, RetrievedChunkDebug } from '@/features/retrieval/types';
 import MessageBubble from './message-bubble';
 
@@ -86,18 +86,13 @@ const parseSseData = (raw: string): ParsedSseEvent | null => {
   }
 };
 
-interface ScopeDoc {
-  readonly id: string;
-  readonly filename: string;
-}
-
 const HISTORY_TURNS = 6;
 
 export default function ChatWindow({
   scopeDoc,
   onClearScope,
 }: {
-  readonly scopeDoc?: ScopeDoc | null;
+  readonly scopeDoc?: ChatScopeDoc | null;
   readonly onClearScope?: () => void;
 }) {
   const [messages, setMessages] = useState<ReadonlyArray<ChatMessage>>([]);
