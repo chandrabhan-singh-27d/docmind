@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
-import RootErrorBoundary from '@/components/error-boundary';
 import './globals.css';
 
 const geistSans = Geist({
@@ -43,7 +42,7 @@ export default function RootLayout({
         />
       </head>
       <body className="h-full flex flex-col overflow-hidden bg-background text-foreground font-sans">
-        <RootErrorBoundary>{children}</RootErrorBoundary>
+        {children}
       </body>
     </html>
   );
