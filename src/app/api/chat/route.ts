@@ -4,6 +4,7 @@ import { z } from 'zod/v4';
 import { askQuestionStream } from '@/features/chat/services/ask-question-stream';
 import { getClientKey, getDefaultRateLimiter } from '@/features/security/rate-limiter';
 import { toErrorResponse, toHttpStatus } from '@/lib/errors';
+import { withLogging } from '@/lib/logging/with-logging';
 
 const ChatHistoryEntrySchema = z.object({
   role: z.enum(['user', 'assistant']),
@@ -17,7 +18,7 @@ const ChatRequestSchema = z.object({
   history: z.array(ChatHistoryEntrySchema).max(20).optional(),
 });
 
-export async function POST(request: NextRequest) {
+export const POST = withLogging(async (request: NextRequest) => {
   const limit = getDefaultRateLimiter().check(getClientKey(request));
   if (!limit.allowed) {
     const error = { type: 'RATE_LIMITED' as const, retryAfterMs: limit.retryAfterMs };
@@ -71,4 +72,4 @@ export async function POST(request: NextRequest) {
       'Connection': 'keep-alive',
     },
   });
-}
+});

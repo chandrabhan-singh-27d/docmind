@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   pgTable,
   text,
@@ -6,6 +7,8 @@ import {
   uuid,
   vector,
   index,
+  jsonb,
+  check,
 } from 'drizzle-orm/pg-core';
 
 export const documents = pgTable('documents', {
@@ -49,3 +52,37 @@ export type Document = typeof documents.$inferSelect;
 export type NewDocument = typeof documents.$inferInsert;
 export type Chunk = typeof chunks.$inferSelect;
 export type NewChunk = typeof chunks.$inferInsert;
+
+export const errorEvents = pgTable(
+  'error_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    level: text('level').notNull(),
+    source: text('source').notNull(),
+    message: text('message').notNull(),
+    stack: text('stack'),
+    route: text('route'),
+    requestId: text('request_id'),
+    userAgent: text('user_agent'),
+    url: text('url'),
+    releaseId: text('release_id'),
+    context: jsonb('context').notNull().default({}),
+  },
+  (table) => [
+    check('error_events_level_check', sql`${table.level} IN ('error', 'warn', 'info')`),
+    check('error_events_source_check', sql`${table.source} IN ('frontend', 'backend')`),
+    index('error_events_created_at_idx').on(table.createdAt.desc()),
+    index('error_events_level_source_idx').on(table.level, table.source),
+    // Partial: most frontend errors have null route. Indexing nulls just
+    // wastes space, and we never query `WHERE route IS NULL`.
+    index('error_events_route_idx')
+      .on(table.route)
+      .where(sql`${table.route} IS NOT NULL`),
+  ],
+);
+
+export type ErrorEvent = typeof errorEvents.$inferSelect;
+export type NewErrorEvent = typeof errorEvents.$inferInsert;

@@ -5,6 +5,7 @@ import { ingestDocument } from '@/features/ingestion/services/ingest-document';
 import { listDocuments, deleteDocument } from '@/features/ingestion/repositories/document-repo';
 import { getClientKey, getDefaultRateLimiter } from '@/features/security/rate-limiter';
 import { toHttpStatus, toErrorResponse } from '@/lib/errors';
+import { withLogging } from '@/lib/logging/with-logging';
 
 const rateLimitResponse = (request: NextRequest): NextResponse | null => {
   const limit = getDefaultRateLimiter().check(getClientKey(request));
@@ -18,7 +19,7 @@ const rateLimitResponse = (request: NextRequest): NextResponse | null => {
 
 const MAX_UPLOAD_SIZE_MB = Number(process.env['MAX_UPLOAD_SIZE_MB'] ?? 20);
 
-export async function POST(request: NextRequest) {
+export const POST = withLogging(async (request: NextRequest) => {
   const limited = rateLimitResponse(request);
   if (limited) return limited;
 
@@ -69,9 +70,9 @@ export async function POST(request: NextRequest) {
     },
     { status: 201 },
   );
-}
+});
 
-export async function GET() {
+export const GET = withLogging(async () => {
   const docs = await listDocuments();
 
   return NextResponse.json({
@@ -84,9 +85,9 @@ export async function GET() {
       createdAt: doc.createdAt,
     })),
   });
-}
+});
 
-export async function DELETE(request: NextRequest) {
+export const DELETE = withLogging(async (request: NextRequest) => {
   const limited = rateLimitResponse(request);
   if (limited) return limited;
 
@@ -102,4 +103,4 @@ export async function DELETE(request: NextRequest) {
 
   await deleteDocument(documentId);
   return NextResponse.json({ deleted: true });
-}
+});
