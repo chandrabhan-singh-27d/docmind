@@ -1,6 +1,6 @@
 import { db } from '@/lib/db/connection';
 import { errorEvents } from '@/lib/db/schema';
-import type { LogEventInput, LogLevel, LogSource } from './types';
+import type { LogEventInput, LogSource } from './types';
 import { redactContext, redactMessage, redactStack } from './redact';
 
 interface ServerLogEnvelope extends LogEventInput {
@@ -41,27 +41,4 @@ export const logEvent = async (envelope: ServerLogEnvelope): Promise<void> => {
   }
 };
 
-/**
- * Convenience helper for the common `level: 'error'` backend case.
- */
-export const logBackendError = (
-  message: string,
-  options?: {
-    readonly stack?: string;
-    readonly route?: string;
-    readonly requestId?: string;
-    readonly userAgent?: string;
-    readonly context?: Readonly<Record<string, unknown>>;
-    readonly level?: LogLevel;
-  },
-): Promise<void> =>
-  logEvent({
-    level: options?.level ?? 'error',
-    source: 'backend',
-    message,
-    stack: options?.stack,
-    route: options?.route,
-    requestId: options?.requestId,
-    userAgent: options?.userAgent,
-    context: options?.context,
-  });
+

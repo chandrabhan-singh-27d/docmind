@@ -76,7 +76,11 @@ export const errorEvents = pgTable(
     check('error_events_source_check', sql`${table.source} IN ('frontend', 'backend')`),
     index('error_events_created_at_idx').on(table.createdAt.desc()),
     index('error_events_level_source_idx').on(table.level, table.source),
-    index('error_events_route_idx').on(table.route),
+    // Partial: most frontend errors have null route. Indexing nulls just
+    // wastes space, and we never query `WHERE route IS NULL`.
+    index('error_events_route_idx')
+      .on(table.route)
+      .where(sql`${table.route} IS NOT NULL`),
   ],
 );
 

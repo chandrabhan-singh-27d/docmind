@@ -23,14 +23,15 @@ export const logClientEvent = (event: LogEventInput): void => {
     context: event.context,
   });
 
-  try {
-    if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
-      const blob = new Blob([body], { type: 'application/json' });
-      const ok = navigator.sendBeacon(ENDPOINT, blob);
-      if (ok) return;
-    }
-  } catch {
-    // sendBeacon may throw on some browsers; fall through to fetch.
+  // sendBeacon is the right tool when it exists — it's reliable across
+  // page-unload, doesn't block, and the browser handles the queue. If a
+  // browser ever returns false here (queue full, payload too large), the
+  // event is dropped: a fetch fallback would risk double-sending the same
+  // event when the queue clears.
+  if (typeof navigator?.sendBeacon === 'function') {
+    const blob = new Blob([body], { type: 'application/json' });
+    navigator.sendBeacon(ENDPOINT, blob);
+    return;
   }
 
   void fetch(ENDPOINT, {

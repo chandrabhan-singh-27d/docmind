@@ -4,6 +4,11 @@ import { z } from 'zod/v4';
 import { getClientKey, getDefaultRateLimiter } from '@/features/security/rate-limiter';
 import { logEvent } from '@/lib/logging/server-logger';
 
+// Size caps below are intentional truncation, not bug-prevention. A real
+// minified-bundle stack can exceed 16k chars; oversized payloads are
+// dropped (the route returns 204) rather than persisted partially. If you
+// see fewer-than-expected events on the dashboard, this is the first
+// place to look.
 const ClientLogSchema = z.object({
   level: z.enum(['error', 'warn', 'info']),
   message: z.string().min(1).max(8000),

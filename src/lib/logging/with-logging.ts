@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { logBackendError } from './server-logger';
+import { logEvent } from './server-logger';
 
 type RouteHandler = (request: NextRequest) => Promise<Response>;
 
@@ -21,7 +21,10 @@ export const withLogging = (handler: RouteHandler): RouteHandler =>
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       const url = new URL(request.url);
-      void logBackendError(error.message, {
+      void logEvent({
+        level: 'error',
+        source: 'backend',
+        message: error.message,
         stack: error.stack,
         route: url.pathname,
         requestId: request.headers.get('x-request-id') ?? undefined,
