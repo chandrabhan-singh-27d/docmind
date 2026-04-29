@@ -35,6 +35,95 @@ Transformers.js — no API token, no rate limits, no network round-trip per quer
 
 ---
 
+## Quick Start
+
+Runs entirely on your machine. No cloud account beyond a free Groq API key.
+
+### Prerequisites
+
+- Node.js 20+
+- pnpm
+- Podman (recommended — rootless, daemonless, no licensing friction) or Docker
+- [Groq API key](https://console.groq.com/) (free)
+
+> Embeddings run **locally** in the Node process via
+> [`@huggingface/transformers`](https://huggingface.co/docs/transformers.js) — no
+> HF token, no rate limits, no network round-trip per query. The
+> `Xenova/all-MiniLM-L6-v2` model (~25 MB) downloads once on first request and
+> caches at `~/.cache/huggingface`.
+
+### 1. Clone and install
+
+```bash
+git clone https://github.com/chandrabhan-singh-27d/docmind.git
+cd docmind
+pnpm install
+```
+
+### 2. Start the stack (Postgres + Metabase)
+
+```bash
+podman compose up -d
+```
+
+This brings up two containers from `docker-compose.yml`:
+
+| Service | Container | Port | Purpose |
+|---|---|---|---|
+| `db` | `docmind-db` | `5433` (host) → `5432` | pgvector for documents + error logs |
+| `metabase` | `docmind-metabase` | `3001` | dashboards over `error_events` |
+
+Enable pgvector + create Metabase's internal DB (one-time):
+
+```bash
+podman exec docmind-db psql -U docmind -c "CREATE EXTENSION IF NOT EXISTS vector;"
+podman exec docmind-db psql -U docmind -c "CREATE DATABASE metabase;"
+```
+
+### 3. Apply schema
+
+```bash
+DATABASE_URL=postgresql://docmind:docmind_local@localhost:5433/docmind \
+  pnpm drizzle-kit push
+```
+
+### 4. Configure env
+
+```bash
+cp .env.example .env.local
+# Edit .env.local → set GROQ_API_KEY (HF_API_TOKEN optional)
+```
+
+Loading order (highest first): `.env.local` → `.env` → `process.env`. So a
+stale shell export never silently shadows your file.
+
+### 5. Run
+
+```bash
+pnpm dev
+```
+
+| URL | What |
+|---|---|
+| <http://localhost:3000> | DocMind app |
+| <http://localhost:3001> | Metabase — finish wizard, then add Postgres source: host `db`, port `5432`, db `docmind`, user `docmind`, pass `docmind_local`. SSL off. |
+
+### Tests
+
+```bash
+pnpm test              # unit (vitest)
+pnpm test:visual       # Playwright snapshots (light + dark + mobile)
+```
+
+### Stopping the stack
+
+```bash
+podman compose down          # stop containers, keep data
+podman compose down -v       # stop + wipe volumes (fresh DB next start)
+```
+
+---
+
 ## Architecture
 
 ```
@@ -71,7 +160,7 @@ User
 |----------|-----|
 | **Local embeddings via Transformers.js** | `Xenova/all-MiniLM-L6-v2` runs in-process via ONNX (~25 MB model, cached at `~/.cache/huggingface`). Free forever, no rate limits, no third-party data. The first request after a cold boot pays a 1–3 s model load; subsequent calls are warm. |
 | **Groq (Llama 3.3 70B Versatile) for generation** | Free tier, ~300+ tok/sec, strong reasoning. Only piece of the pipeline that's still remote. |
-| **pgvector over Pinecone/Chroma** | Self-hosted, free, SQL joins for metadata filtering, runs in Docker. No vendor lock-in. |
+| **pgvector over Pinecone/Chroma** | Self-hosted, free, SQL joins for metadata filtering, runs in a container (Podman or Docker). No vendor lock-in. |
 | **Per-document scope bypasses similarity threshold** | When the user explicitly chose a document, generic queries like "summarize this" or "explain it like I'm 5" carry little semantic signal but still deserve an answer. The threshold only filters when searching across the whole library. |
 | **History-aware retrieval** | Embedding query is built from the prior user turn + the new query, so follow-ups like "explain a bit more" still find relevant chunks. The LLM also receives recent turns as conversation context. |
 | **Buffered streaming emitter** | Internal `CITATIONS_JSON:` marker is held back at the tail until disambiguated, so it never leaks into the user-visible prose. |
@@ -105,7 +194,7 @@ User
 | **Language** | TypeScript (strict mode, no `any`) |
 | **LLM** | Groq — Llama 3.3 70B Versatile (free tier) |
 | **Embeddings** | Transformers.js (`@huggingface/transformers`) — all-MiniLM-L6-v2, local ONNX |
-| **Vector DB** | PostgreSQL 17 + pgvector (Docker) |
+| **Vector DB** | PostgreSQL 17 + pgvector (Podman / Docker) |
 | **ORM** | Drizzle |
 | **Validation** | Zod v4 |
 | **PDF Parsing** | pdf-parse v2 (server-only via `serverExternalPackages`) |
@@ -155,67 +244,6 @@ src/
 
 ---
 
-## Getting Started
-
-### Prerequisites
-
-- Node.js 20+
-- pnpm
-- Podman or Docker
-- [Groq API key](https://console.groq.com/) (free)
-
-> Embeddings run **locally** in the Node process via
-> [`@huggingface/transformers`](https://huggingface.co/docs/transformers.js) — no
-> HF token, no rate limits, no network round-trip per query. The
-> `Xenova/all-MiniLM-L6-v2` model (~25 MB) is downloaded once on first request
-> and cached at `~/.cache/huggingface`.
-
-### Setup
-
-```bash
-# Clone
-git clone https://github.com/chandrabhan-singh-27d/docmind.git
-cd docmind
-
-# Install dependencies
-pnpm install
-
-# Start pgvector (Podman). Host port 5433 avoids clashing with a system
-# postgres on 5432.
-podman run -d --name docmind-db \
-  -p 5433:5432 \
-  -e POSTGRES_USER=docmind \
-  -e POSTGRES_PASSWORD=docmind_local \
-  -e POSTGRES_DB=docmind \
-  docker.io/pgvector/pgvector:pg17
-
-# Enable pgvector extension
-podman exec docmind-db psql -U docmind -c "CREATE EXTENSION IF NOT EXISTS vector;"
-
-# Push schema
-DATABASE_URL=postgresql://docmind:docmind_local@localhost:5433/docmind \
-  pnpm drizzle-kit push
-
-# Configure environment
-cp .env.example .env.local
-# Edit .env.local and fill in GROQ_API_KEY (HF_API_TOKEN is optional)
-
-# Run
-pnpm dev
-```
-
-Open [http://localhost:3000](http://localhost:3000).
-
-### Env loading order (highest first)
-
-1. `.env.local` — per-developer overrides (gitignored)
-2. `.env` — project defaults (gitignored)
-3. `process.env` — shell exports / platform-injected
-
-`.env.local` wins, so a stale shell export never silently shadows your file.
-
----
-
 ## Data Flow
 
 ```
@@ -239,6 +267,7 @@ step is a pure function returning `Result<T, AppError>`.
 ```
 pnpm test          # one-shot run
 pnpm test:watch    # watch mode
+pnpm test:visual   # Playwright snapshots (light + dark + mobile)
 ```
 
 Covers the LRU+TTL embedding cache, token-bucket rate limiter,
@@ -249,11 +278,77 @@ history-aware retrieval-query builder.
 
 ## Observability
 
-A self-hosted error pipeline (browser + server errors → Postgres →
-Metabase dashboards) is designed in [`docs/LOGGING.md`](docs/LOGGING.md).
-The plan reuses the existing Postgres container and adds Metabase as a
-single extra Docker service — no per-event pricing, no third-party data
-sharing.
+Self-hosted error pipeline — browser + server errors land in the
+`error_events` Postgres table; Metabase reads the same database for
+dashboards. No per-event pricing, no third-party data sharing.
+
+- **Frontend** — React error boundaries (`app/error.tsx`,
+  `app/global-error.tsx`), `window.onerror` /
+  `unhandledrejection` hooks, plus manual `logEvent(...)` calls. All
+  POST to `/api/logs/event` (Zod-validated, rate-limited).
+- **Backend** — `withLogging(handler)` wraps API routes and persists
+  unexpected throws; `Result.err` paths log directly via
+  `server-logger.ts`.
+- **Privacy** — user query text is redacted by default
+  (`lib/logging/redact.ts`); set `LOG_INCLUDE_QUERY=true` only for
+  local debugging. Client IPs are hashed.
+- **Provider swap** — replace `logEvent` in `lib/logging/` to switch
+  to Sentry; nothing else changes.
+
+### Metabase
+
+Metabase image `metabase/metabase:latest` = **Metabase OSS** (AGPL-3.0).
+Free, self-hosted, no per-event cost. Paid plans on metabase.com
+(Cloud / Pro / Enterprise) are not required.
+
+Startup is covered in [Quick Start](#quick-start). Wizard data-source
+fields recap:
+
+| Field | Value |
+|---|---|
+| Host | `db` (inside the compose network) or `localhost` (from host) |
+| Port | `5432` inside the network, `5433` from host |
+| Database name | `docmind` |
+| Username | `docmind` |
+| Password | `docmind_local` |
+| Use a secure connection / SSL | Off |
+
+### Viewing logs in Metabase
+
+Three ways to inspect `error_events`:
+
+1. **Browse data** → `docmind` → `Error Events`. Filter by `level`,
+   `source`, `created_at`. Good for quick triage.
+2. **+ New → SQL query** → pick `docmind`. Write any SQL (samples
+   below). Save as a Question.
+3. **+ New → Dashboard**. Drop saved questions on it (errors/hour
+   chart, top routes bar, frontend-vs-backend pie). Set auto-refresh
+   to 1 minute.
+
+Alerts: open a saved Question → bell icon → set a threshold. Email
+or Slack delivery requires SMTP / webhook in **Admin → Settings**.
+
+The `error_events` table is auto-discovered. Useful starter SQL:
+
+```sql
+-- Errors per hour, last 24h
+SELECT date_trunc('hour', created_at) AS bucket, count(*)
+FROM error_events
+WHERE created_at > now() - interval '24 hours' AND level = 'error'
+GROUP BY 1 ORDER BY 1;
+
+-- Top routes by error count, last 7d
+SELECT route, count(*)
+FROM error_events
+WHERE created_at > now() - interval '7 days' AND level = 'error'
+GROUP BY route ORDER BY 2 DESC LIMIT 20;
+
+-- Frontend vs backend split
+SELECT source, level, count(*)
+FROM error_events
+WHERE created_at > now() - interval '7 days'
+GROUP BY 1, 2;
+```
 
 ---
 

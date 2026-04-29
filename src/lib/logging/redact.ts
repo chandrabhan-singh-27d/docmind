@@ -1,6 +1,6 @@
 /**
  * Privacy-preserving redaction applied before any log event hits the
- * `error_events` table. The plan in docs/LOGGING.md treats user query text
+ * `error_events` table. User query text is treated
  * as PII by default — useful for debugging *only* when LOG_INCLUDE_QUERY=true.
  *
  * This module also strips obvious credentials patterns (bearer tokens,
