@@ -354,4 +354,4 @@ GROUP BY 1, 2;
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
