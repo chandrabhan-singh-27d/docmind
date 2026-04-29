@@ -146,10 +146,38 @@ Services never call `db` directly.
 
 ## Observability
 
-Error pipeline (frontend + backend → Postgres → Metabase) is documented
-separately in [`docs/LOGGING.md`](docs/LOGGING.md). The plan is
-self-hosted, free at scale, and designed so swapping to Sentry later is
-a single-file change.
+Self-hosted error pipeline: browser + server errors → Postgres
+(`error_events` table) → Metabase dashboards. All implemented.
+
+**Capture surfaces**
+
+- `app/error.tsx` + `app/global-error.tsx` — React error boundaries.
+- `<head>` script in `app/layout.tsx` — wires `window.onerror` and
+  `unhandledrejection`.
+- Manual `logEvent(...)` from `lib/logging/client-logger.ts` for
+  failed fetches in client components.
+- `lib/logging/with-logging.ts` — wraps API route handlers, catches
+  unexpected throws and persists `{ source: 'backend', stack, route,
+  request_id }`.
+- `lib/logging/server-logger.ts` — direct insert for `Result.err`
+  paths (level=`warn`).
+
+**Transport**
+
+Frontend posts to `/api/logs/event` (Zod-validated, rate-limited via
+the shared limiter). Backend writes straight to the `error_events`
+table through Drizzle.
+
+**Privacy**
+
+`lib/logging/redact.ts` strips user query text by default. Set
+`LOG_INCLUDE_QUERY=true` only for local debugging. Client IPs are
+hashed (same hash the rate limiter uses), never stored raw.
+
+**Swap to Sentry**
+
+Replace `logEvent` in `lib/logging/`. Drop the route + table. Nothing
+in `app/`, `features/`, or `components/` needs to change.
 
 ---
 
